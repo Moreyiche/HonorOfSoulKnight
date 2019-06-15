@@ -18,7 +18,7 @@ bool HeroBuff::BuffEnd()
 		return false;
 }
 
-HeroAttribute HeroBuff::GetAttributeChange()
+Attribute HeroBuff::GetAttributeChange()
 {
 	return this->attribute_change_;
 }

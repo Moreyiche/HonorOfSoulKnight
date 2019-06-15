@@ -1,4 +1,4 @@
-
+#include "GamePause.h"
 #include "Layer.h"
 #include "SimpleAudioEngine.h"
 USING_NS_CC;
@@ -14,122 +14,7 @@ static void problemLoading(const char* filename)
     printf("Depending on how you compiled you might have to add 'Resources/' in front of filenames in HelloWorldScene.cpp\n");
 }
 
-Point MapLayer::tileCoordForPosition(Point position)
-{
-	int x = position.x / tiled_map_1v1->getTileSize().width;
-	int y = ((tiled_map_1v1->getMapSize().height * tiled_map_1v1->getTileSize().height) - position.y) / tiled_map_1v1->getTileSize().height;
-	return Point(x, y);
-}
 
-void MapLayer::setViewPointCenter(Point position) {
-	auto winSize = Director::getInstance()->getWinSize();
-
-
-	int x = MAX(position.x, winSize.width / 2);
-	int y = MAX(position.y, winSize.height / 2);
-	x = MIN(x, (tiled_map_1v1->getMapSize().width * this->tiled_map_1v1->getTileSize().width) - winSize.width / 2);
-	y = MIN(y, (tiled_map_1v1->getMapSize().height * tiled_map_1v1->getTileSize().height) - winSize.height / 2);
-	auto actualPosition = Point(x, y);
-
-
-	auto centerOfView = Point(winSize.width / 2, winSize.height / 2);
-	auto viewPoint = centerOfView - actualPosition;
-	this->setPosition(viewPoint);
-}
-
-void MapLayer::onKeyReleased(cocos2d::EventKeyboard::KeyCode code, Event* unused_event)
-{
-	auto playerPos = _hero->getPosition();
-	if (code == EventKeyboard::KeyCode::KEY_RIGHT_ARROW || code == EventKeyboard::KeyCode::KEY_LEFT_ARROW) {
-		if (code == EventKeyboard::KeyCode::KEY_RIGHT_ARROW) {
-			playerPos.x += tiled_map_1v1->getTileSize().width / 2;
-			_hero->setFlipX(false);
-		}
-		else {
-			playerPos.x -= tiled_map_1v1->getTileSize().width / 2;
-			_hero->setFlippedX(true);
-		}
-	}
-	else {
-		if (code == EventKeyboard::KeyCode::KEY_UP_ARROW) {
-			playerPos.y += tiled_map_1v1->getTileSize().height / 2;
-		}
-		else {
-			playerPos.y -= tiled_map_1v1->getTileSize().height / 2;
-		}
-	}
-
-	if (playerPos.x <= (tiled_map_1v1->getMapSize().width * tiled_map_1v1->getMapSize().width) &&
-		playerPos.y <= (tiled_map_1v1->getMapSize().height * tiled_map_1v1->getMapSize().height) &&
-		playerPos.y >= 0 &&
-		playerPos.x >= 0)
-	{
-		this->setPlayerPosition(playerPos);
-	}
-
-	this->setViewPointCenter(_hero->getPosition());
-
-}
-
-void MapLayer::onTouchEnded(Touch* touch, Event* unused_event)
-{
-	auto actionTo1 = RotateTo::create(0, 0, 180);
-	auto actionTo2 = RotateTo::create(0, 0, 0);
-	auto touchLocation = touch->getLocation();
-
-	touchLocation = this->convertToNodeSpace(touchLocation);
-
-
-	auto playerPos = saber->getPosition();
-	auto diff = touchLocation - playerPos;
-
-	if (abs(diff.x) > abs(diff.y)) {
-		if (diff.x > 0) {
-			playerPos.x += tiled_map_1v1->getTileSize().width / 2;
-			saber->runAction(actionTo2);
-		}
-		else {
-			playerPos.x -= tiled_map_1v1->getTileSize().width / 2;
-			saber->runAction(actionTo1);
-		}
-	}
-	else {
-		if (diff.y > 0) {
-			playerPos.y += tiled_map_1v1->getTileSize().height / 2;
-		}
-		else {
-			playerPos.y -= tiled_map_1v1->getTileSize().height / 2;
-		}
-	}
-
-	if (playerPos.x <= (tiled_map_1v1->getMapSize().width * tiled_map_1v1->getMapSize().width) &&
-		playerPos.y <= (tiled_map_1v1->getMapSize().height * tiled_map_1v1->getMapSize().height) &&
-		playerPos.y >= 0 &&
-		playerPos.x >= 0)
-	{
-		this->setPlayerPosition(playerPos);
-	}
-
-	this->setViewPointCenter(saber->getPosition());
-
-}
-
-
-void MapLayer::setPlayerPosition(Point position)
-{
-	Point tileCoord = this->tileCoordForPosition(position);
-	int tileGid = block->getTileGIDAt(tileCoord);
-	if (tileGid) {
-		auto properties = tiled_map_1v1->getPropertiesForGID(tileGid).asValueMap();
-		if (!properties.empty()) {
-			auto collision = properties["Blockage"].asString();
-			if ("true" == collision) {
-				return;
-			}
-		}
-	}
-	_hero->setPosition(position);
-}
 
 
 bool MapLayer::init()
@@ -155,7 +40,7 @@ bool MapLayer::init()
 	TMXObjectGroup* objects = tiled_map_1v1->getObjectGroup("hero");
 	CCASSERT(NULL != objects, "'hero' object group not found");
 
-	auto playerShowUpPoint = objects->getObject("player");
+	auto playerShowUpPoint = objects->getObject("_hero");
 	CCASSERT(!playerShowUpPoint.empty(), "player object not found");
 
 
@@ -168,6 +53,7 @@ bool MapLayer::init()
 
 	//add player
 	_hero = Player::create(Player::PlayerType::HERO);
+	_hero->setPosition(Point(x, y));
 	setViewPointCenter(_hero->getPosition());
 	_hero->setScale(0.8);
 	this->addChild(_hero);
@@ -184,32 +70,30 @@ bool MapLayer::init()
 	_listener_touch->onTouchBegan = CC_CALLBACK_2(MapLayer::onTouchBegan, this);
 	_eventDispatcher->addEventListenerWithSceneGraphPriority(_listener_touch, this);
 
-	auto attackItem = MenuItemImage::create(
-		"CloseNormal.png",
-		"CloseSelected.png",
-		CC_CALLBACK_1(MapLayer::attackCallback, this));
-
-	attackItem->setPosition(Vec2(origin.x + visibleSize.width - attackItem->getContentSize().width / 2,
-		origin.y + attackItem->getContentSize().height / 2));
-
-	// create menu, it's an autorelease object
-	auto menu = Menu::create(attackItem, NULL);
-	menu->setPosition(Vec2::ZERO);
-	this->addChild(menu, 1);
 
 	_progress = Progress::create("player-progress-bg.png", "player-progress-fill.png");
 	_progress->setPosition(_progress->getContentSize().width / 2, this->getContentSize().height - _progress->getContentSize().height / 2);
 	this->addChild(_progress);
+
 	auto listener = EventListenerKeyboard::create();
-	listener->onKeyPressed = [](EventKeyboard::KeyCode keyCode, Event * event) {
-		log("KeyPress:%d", keyCode);
-		if (keyCode ==EventKeyboard::KeyCode::KEY_UP_ARROW|| keyCode == EventKeyboard::KeyCode::KEY_LEFT_ARROW|| keyCode == EventKeyboard::KeyCode::KEY_RIGHT_ARROW|| keyCode == EventKeyboard::KeyCode::KEY_DOWN_ARROW)
-			return true;
-		else
-			return false;
-	};
 	listener->onKeyReleased = CC_CALLBACK_2(MapLayer::onKeyReleased,this);
 	this->_eventDispatcher->addEventListenerWithSceneGraphPriority(listener, this);
+
+
+
+	CCMenuItemImage *pCloseItem = CCMenuItemImage::create(
+		"CloseNormal.png",
+		"CloseSelected.png",
+		this,
+		menu_selector(MapLayer::menuPauseCallback));
+
+	pCloseItem->setPosition(Vec2(visibleSize.width - pCloseItem->getContentSize().width / 2,
+		visibleSize.height - pCloseItem->getContentSize().height / 2));
+
+	// create menu, it's an autorelease object
+	CCMenu* pMenu = CCMenu::create(pCloseItem, NULL);
+	pMenu->setPosition(Point::ZERO);
+	this->addChild(pMenu, 1);
 
 	return true;
 }
@@ -230,27 +114,110 @@ void MapLayer::menuCloseCallback(cocos2d::Ref* pSender)
 
 bool MapLayer::onTouchBegan(Touch* touch, Event* event)
 {
-	Vec2 pos = this->convertToNodeSpace(touch->getLocation());
-	_hero->walkTo(pos);
-	log("MainScene::onTouchBegan");
-	_enemy->autoDoAction(_hero);
+	Point pos = this->convertToNodeSpace(touch->getLocation());
 
+	log("x = %f, y = %f", pos.x, pos.y);
+	_enemy->autoDoAction(_hero);
+	this->setViewPointCenter(_hero->getPosition());
+	if (_seq)
+		_hero->stopAction(_seq);
+	auto curPos = _hero->getPosition();
+	if (curPos.x > pos.x)
+		_hero->setFlippedX(true);
+	else
+		_hero->setFlippedX(false);
+	auto diff = pos - curPos;
+	auto time = diff.getLength() / 100;
+	auto moveTo = MoveTo::create(time, pos);
+	auto func = [&]()
+	{
+		_hero->stopAllActions();
+		_hero->playAnimationForever("stay");
+		_seq = nullptr;
+	};
+	auto callback = CallFunc::create(func);
+	_hero->stopAllActions();
+	_hero->playAnimationForever("walk");
+	_seq = Sequence::create(moveTo, callback, nullptr);
+
+	_hero->runAction(_seq);
 
 
 	return true;
 }
 
-void MapLayer::attackCallback(Ref* pSender)
+void MapLayer::menuPauseCallback(Ref* pSender)
 {
-	_hero->stopAllActions();
-	_hero->playAnimation("attack");
-	Vec2 del = _hero->getPosition() - _enemy->getPosition();
-	float distance = del.length();
-	log(String::createWithFormat("distance == %f", distance)->getCString());
-	if (distance <= 100.0) {
-		_enemy->getHit();
-	}
-	_enemy->autoAttack(_hero);
-	_progress->setProgress(_hero->getProgress()->getProgress());
 
+	//得到窗口的大小
+	CCSize visibleSize = CCDirector::getInstance()->getVisibleSize();
+	CCRenderTexture *renderTexture = CCRenderTexture::create(visibleSize.width, visibleSize.height);
+	CCScene *scene = CCDirector::sharedDirector()->getRunningScene();
+	//遍历当前类的所有子节点信息，画入renderTexture中。
+	//这里类似截图。
+	renderTexture->begin();
+	this->visit();
+	renderTexture->end();
+
+	//将游戏界面暂停，压入场景堆栈。并切换到GamePause界面
+	CCDirector::sharedDirector()->pushScene(Gamepause::scene(renderTexture));
+}
+Point MapLayer::tileCoordForPosition(Point position)
+{
+	int x = position.x / tiled_map_1v1->getTileSize().width;
+	int y = ((tiled_map_1v1->getMapSize().height * tiled_map_1v1->getTileSize().height) - position.y) / tiled_map_1v1->getTileSize().height;
+	return Point(x, y);
+}
+
+void MapLayer::setViewPointCenter(Point position) {
+	auto winSize = Director::getInstance()->getWinSize();
+
+
+	int x = MAX(position.x, winSize.width / 2);
+	int y = MAX(position.y, winSize.height / 2);
+	x = MIN(x, (tiled_map_1v1->getMapSize().width * this->tiled_map_1v1->getTileSize().width) - winSize.width / 2);
+	y = MIN(y, (tiled_map_1v1->getMapSize().height * tiled_map_1v1->getTileSize().height) - winSize.height / 2);
+	auto actualPosition = Point(x, y);
+
+	auto centerOfView = Point(winSize.width / 2, winSize.height / 2);
+	auto viewPoint = centerOfView - actualPosition;
+	this->setPosition(viewPoint);
+}
+
+void MapLayer::onKeyReleased(cocos2d::EventKeyboard::KeyCode code, Event* unused_event)
+{
+	if (code == EventKeyboard::KeyCode::KEY_A)
+	{
+		_hero->stopAllActions();
+		_hero->playAnimation("attack");
+		Vec2 del = _hero->getPosition() - _enemy->getPosition();
+		float distance = del.length();
+		log(String::createWithFormat("distance == %f", distance)->getCString());
+		if (distance <= 100.0) {
+			_enemy->getHit();
+		}
+		_enemy->autoAttack(_hero);
+		_progress->setProgress(_hero->getProgress()->getProgress());
+	}
+
+}
+
+void MapLayer::onTouchEnded(Touch* touch, Event* unused_event)
+{
+
+}
+void MapLayer::setPlayerPosition(Point position)
+{
+	Point tileCoord = this->tileCoordForPosition(position);
+	int tileGid = block->getTileGIDAt(tileCoord);
+	if (tileGid) {
+		auto properties = tiled_map_1v1->getPropertiesForGID(tileGid).asValueMap();
+		if (!properties.empty()) {
+			auto collision = properties["Blockage"].asString();
+			if ("true" == collision) {
+				return;
+			}
+		}
+	}
+	_hero->setPosition(position);
 }

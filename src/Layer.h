@@ -21,7 +21,7 @@ public:
 	void setPlayerPosition(cocos2d::Point position);
 	bool onTouchBegan(Touch* touch, Event* event);
 	void onTouchEnded(cocos2d::Touch* touch, cocos2d::Event* unused_event);
-	void attackCallback(Ref* pSender);
+	void MapLayer::menuPauseCallback(Ref* pSender);
 	cocos2d::Point tileCoordForPosition(cocos2d::Point position);
 private:
 	cocos2d::TMXTiledMap* tiled_map_1v1;
@@ -31,6 +31,7 @@ private:
 	Player* _enemy;
 	EventListenerTouchOneByOne* _listener_touch;
 	Progress* _progress;
+	Sequence* _seq;
 
 };
 #endif // __MAP_LAYER_H__
